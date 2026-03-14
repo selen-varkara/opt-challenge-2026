@@ -5,8 +5,8 @@ import pandas as pd
 import os
 
 # INSTANCE DOSYASINI OKU
-with open("instances/instance_1.json") as f:
-    data = json.load(f)
+with open("instances/instance_4.json") as f:
+        data = json.load(f)
 
 # NODE KOORDINATLARI
 nodes = {n["id"]: (n["x"], n["y"]) for n in data["network"]["nodes"]}
@@ -128,7 +128,7 @@ solution = {
 }
 
 # JSON DOSYASI YAZ
-with open("solutions/sol_instance_1.json", "w") as f:
-    json.dump(solution, f, indent=4)
+with open("solutions/sol_instance_4.json", "w") as f:
+        json.dump(solution, f, indent=4)
 
 print("\nSolution file saved in solutions/sol_instance_1.json")
