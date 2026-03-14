@@ -1,24 +1,47 @@
 import json
-import math
 import itertools
 import pandas as pd
 import os
 
-# INSTANCE DOSYASINI OKU
-with open("instances/instance_4.json") as f:
-        data = json.load(f)
+# ----------------------------
+# INSTANCE DOSYASI OKU
+# ----------------------------
 
-# NODE KOORDINATLARI
-nodes = {n["id"]: (n["x"], n["y"]) for n in data["network"]["nodes"]}
+INSTANCE_FILE = "instances/instance_1.json"
+
+with open(INSTANCE_FILE) as f:
+    data = json.load(f)
 
 midday = data["mid_day_time"]
 lambda_f = data["lambda_f"]
 lambda_d = data["lambda_d"]
 
-# FAILURELARI BUL
-failures = [m for m in data["machines"] if "failed_at" in m and m["failed_at"] <= midday]
+# ----------------------------
+# NETWORK TRAVEL TIME MATRIX
+# ----------------------------
 
-# TRUCK KONUMUNU BUL
+travel = {}
+
+for arc in data["network"]["arcs"]:
+    i = arc["tail"]
+    j = arc["head"]
+    t = arc["travel_time"]
+    travel[(i, j)] = t
+
+# ----------------------------
+# FAILURE MAKİNELERİ BUL
+# ----------------------------
+
+failures = []
+
+for m in data["machines"]:
+    if "failed_at" in m and m["failed_at"] <= midday:
+        failures.append(m)
+
+# ----------------------------
+# TRUCK POZİSYONLARI
+# ----------------------------
+
 truck_pos = []
 
 for t in data["trucks"]:
@@ -42,7 +65,10 @@ for t in data["trucks"]:
         "time": last_depart
     })
 
-# ORIJINAL ATAMALARI BUL
+# ----------------------------
+# ORJINAL ATAMALAR
+# ----------------------------
+
 machine_original = {}
 
 for t in data["trucks"]:
@@ -50,19 +76,26 @@ for t in data["trucks"]:
         if "machine_id" in v:
             machine_original[v["machine_id"]] = t["id"]
 
-# MESAFE FONKSIYONU
-def dist(a, b):
+# ----------------------------
+# MESAFE FONKSİYONU
+# ----------------------------
 
-    ax, ay = nodes[a]
-    bx, by = nodes[b]
+def travel_time(a, b):
 
-    return math.sqrt((ax - bx)**2 + (ay - by)**2)
+    if (a, b) in travel:
+        return travel[(a, b)]
+
+    return 9999
+
+
+# ----------------------------
+# TÜM ATAMALARI DENE
+# ----------------------------
 
 results = []
 
 trucks = [t["truck"] for t in truck_pos]
 
-# TÜM OLASI ATAMALARI DENE
 for assign in itertools.product(trucks, repeat=len(failures)):
 
     state = {t["truck"]: {"node": t["node"], "time": t["time"]} for t in truck_pos}
@@ -80,16 +113,16 @@ for assign in itertools.product(trucks, repeat=len(failures)):
         cur_node = state[truck]["node"]
         cur_time = state[truck]["time"]
 
-        travel = dist(cur_node, node)
+        travel_t = travel_time(cur_node, node)
 
-        arrival = cur_time + travel
+        arrival = cur_time + travel_t
         start = arrival
         finish = start + repair
 
         state[truck]["node"] = node
         state[truck]["time"] = finish
 
-        failure_pen += demand * (start - fail_time)
+        failure_pen += demand * max(0, start - fail_time)
 
         if f["id"] in machine_original and machine_original[f["id"]] != truck:
             deviation += 1
@@ -103,12 +136,17 @@ for assign in itertools.product(trucks, repeat=len(failures)):
         "objective": obj
     })
 
+
+# ----------------------------
+# EN İYİ ÇÖZÜM
+# ----------------------------
+
 df = pd.DataFrame(results)
 
 best = df.sort_values("objective").iloc[0]
 
 print("FAILURES:")
-print(pd.DataFrame(failures)[["id","node","failed_at","demand_rate"]])
+print(pd.DataFrame(failures)[["id", "node", "failed_at", "demand_rate"]])
 
 print("\nTRUCK POSITIONS:")
 print(pd.DataFrame(truck_pos))
@@ -116,19 +154,21 @@ print(pd.DataFrame(truck_pos))
 print("\nBEST SOLUTION:")
 print(best)
 
-print("\nALL SOLUTIONS:")
-print(df.sort_values("objective"))
 
-# SOLUTION KLASÖRÜ OLUŞTUR
+# ----------------------------
+# SOLUTION KAYDET
+# ----------------------------
+
 os.makedirs("solutions", exist_ok=True)
+
+instance_name = os.path.basename(INSTANCE_FILE).replace("instance", "sol")
 
 solution = {
     "assignment": list(best["assignment"]),
     "objective": float(best["objective"])
 }
 
-# JSON DOSYASI YAZ
-with open("solutions/sol_instance_4.json", "w") as f:
-        json.dump(solution, f, indent=4)
+with open(f"solutions/{instance_name}", "w") as f:
+    json.dump(solution, f, indent=4)
 
-print("\nSolution file saved in solutions/sol_instance_1.json")
+print("\nSolution saved:", f"solutions/{instance_name}")
