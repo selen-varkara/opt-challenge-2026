@@ -1,7 +1,7 @@
 # Baseline brute force solver
 # Reads instance JSON
 # Assigns failures to trucks
-# Computes objective with failure and deviation penaltiesss
+# Computes objective with failure and deviation penalties
 
 import json
 import itertools
